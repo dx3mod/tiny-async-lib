@@ -75,5 +75,21 @@ let map f p =
       |> enqueue_callback p;
       output_promise
 
-let ( >>= ) p f = bind p f
-let ( >|= ) p f = map f p
+(* +-----------------------------------------------------------------+
+   | Syntax                                                          |
+   +-----------------------------------------------------------------+ *)
+
+module Infix = struct
+  let[@inline] ( >>= ) p f = bind p f
+  let[@inline] ( >|= ) p f = map f p
+end
+
+module Syntax = struct
+  let[@inline] ( let* ) p f = bind p f
+end
+
+(* +-----------------------------------------------------------------+
+   | Other                                                           |
+   +-----------------------------------------------------------------+ *)
+
+let async f = f () |> ignore

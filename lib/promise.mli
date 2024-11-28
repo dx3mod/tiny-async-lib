@@ -23,12 +23,22 @@ val return : 'a -> 'a t
 val bind : 'a t -> ('a -> 'b t) -> 'b t
 val map : ('a -> 'b) -> 'a t -> 'b t
 
-(* Infix *)
+(* Syntax *)
 
-val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
-val ( >|= ) : 'a t -> ('a -> 'b) -> 'b t
+module Infix : sig
+  val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
+  val ( >|= ) : 'a t -> ('a -> 'b) -> 'b t
+end
+
+module Syntax : sig
+  val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
+end
 
 (* Exceptions *)
 
 exception Ri_violated
 exception Twice_resolve
+
+(* Other *)
+
+val async : (unit -> 'a t) -> unit
