@@ -30,7 +30,7 @@ let state p = p.state
    | Monadic                                                         |
    +-----------------------------------------------------------------+ *)
 
-let add_callback p callback =
+let enqueue_callback p callback =
   match p.state with
   | Pending callbacks -> p.state <- Pending (callback :: callbacks)
   | _ -> ()
@@ -59,8 +59,8 @@ let bind p f =
           | Fulfilled value -> fulfill output_resolver value
           | Rejected exc -> reject output_resolver exc
           | Pending _ ->
-              add_callback promise (callback_on_resolve output_resolver))
-      |> add_callback p;
+              enqueue_callback promise (callback_on_resolve output_resolver))
+      |> enqueue_callback p;
       output_promise
 
 let ( << ) = Fun.compose
@@ -72,7 +72,7 @@ let map f p =
   | Pending _ ->
       let output_promise, output_resolver = make () in
       callback_on_fulfilled output_resolver (fulfill output_resolver << f)
-      |> add_callback p;
+      |> enqueue_callback p;
       output_promise
 
 let ( >>= ) p f = bind p f

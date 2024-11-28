@@ -5,14 +5,17 @@ and 'a state = private
   | Rejected of exn
   | Pending of 'a callback list
 
-and 'a callback = 'a state -> unit
+and 'a callback
 
 type 'a resolver
 
 val make : unit -> 'a t * 'a resolver
-val fulfill : 'a t -> 'a -> unit
-val reject : 'a t -> exn -> unit
 val state : 'a t -> 'a state
+
+(* Fulfill or Reject *)
+
+val fulfill : 'a resolver -> 'a -> unit
+val reject : 'a resolver -> exn -> unit
 
 (* Monadic *)
 
