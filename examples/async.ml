@@ -1,7 +1,7 @@
 open Tiny_async_lib
 open Promise.Infix
 
-let main () =
+let main =
   Promise.async (fun () ->
       Io.sleep 3.4 >>= fun () -> Io.(write_all stdout) "Hello World\n");
 
@@ -10,4 +10,4 @@ let main () =
 
   Io.sleep 10.
 
-let () = Engine.run @@ main ()
+let () = Engine.run main
