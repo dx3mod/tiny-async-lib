@@ -1,3 +1,3 @@
 (library
  (name tiny_promise_lib)
- (libraries))
+ (libraries unix))
