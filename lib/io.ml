@@ -67,3 +67,6 @@ let write_file filename contents =
   let* contents = write_all fd contents in
   Unix.close fd;
   Promise.return contents
+
+
+let stdout : Unix.file_descr = Obj.magic 1
