@@ -68,5 +68,23 @@ let write_file filename contents =
   Unix.close fd;
   Promise.return contents
 
+let stdout = Unix.stdout
+and stdin = Unix.stdin
 
-let stdout : Unix.file_descr = Obj.magic 1
+let read_line fd =
+  let p, r = Promise.make () in
+
+  let buffer = Buffer.create 30 in
+  let char_byte = Bytes.create 1 in
+
+  Engine.(on_readable instance) fd (fun _ ->
+      match Unix.read fd char_byte 0 1 with
+      | 0 -> Promise.reject r (Failure "")
+      | _ -> (
+          match Bytes.get_uint8 char_byte 0 |> char_of_int with
+          | '\n' ->
+              Promise.fulfill r
+                (buffer |> Buffer.to_bytes |> Bytes.unsafe_to_string)
+          | c -> Buffer.add_char buffer c));
+
+  p

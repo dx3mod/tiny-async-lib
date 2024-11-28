@@ -1,3 +1,3 @@
 (executables
- (names read_file write_file async)
+ (names read_file write_file async read_name)
  (libraries tiny_async_lib))
