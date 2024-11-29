@@ -1,3 +1,4 @@
 (library
+ (public_name tiny-async-lib)
  (name tiny_async_lib)
  (libraries unix))

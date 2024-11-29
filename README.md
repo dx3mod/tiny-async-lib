@@ -22,7 +22,14 @@ Hello, Артём!
 
 See more examples in [the directory](./examples/). 
 
-**References**
+### Documentation 
+
+```console
+$ dune build @doc 
+$ python -m http.server 8080 --directory _build/default/_doc/_html/
+```
+
+### References
 
 - [Lwt] source code
 - [CS3110, 8.7. Promises](https://cs3110.github.io/textbook/chapters/ds/promises.html)

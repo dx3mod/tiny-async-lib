@@ -65,7 +65,7 @@ let stop_handler handler =
   handler.stop_action ()
 
 (* +-----------------------------------------------------------------+
-   | Internal helpers                                                |
+   | On-Handlers                                                     |
    +-----------------------------------------------------------------+ *)
 
 let on_timer engine delay action =
