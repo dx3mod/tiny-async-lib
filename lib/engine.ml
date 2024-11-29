@@ -4,14 +4,14 @@ type t = {
   wait_writable : io handler Fd_table.t;
 }
 
-and sleeper = { mutable time : float }
+and sleeper = { mutable sleep_before_time : float }
 and io
 
 and 'a handler = {
   mutable stopped : bool;
   stop_action : unit -> unit;
   action : 'a handler -> unit;
-  meta : 'a;
+  context : 'a;
 }
 
 (* +-----------------------------------------------------------------+
@@ -31,17 +31,20 @@ let instance = create ()
    | Internal helpers                                                |
    +-----------------------------------------------------------------+ *)
 
-let enqueue_sleeper t sleeper = t.sleepers <- t.sleepers @ [ sleeper ]
-let enqueue_readable t fd action = Fd_table.add t.wait_readable fd action
-let dequeue_readable_action t fd = Fd_table.remove t.wait_readable fd
-let enqueue_writable t fd action = Fd_table.add t.wait_writable fd action
-let dequeue_writable_action t fd = Fd_table.remove t.wait_writable fd
+let enqueue_sleeper_handler t sleeper = t.sleepers <- t.sleepers @ [ sleeper ]
+let add_readable_handler t fd action = Fd_table.add t.wait_readable fd action
+let remove_readable_handler t fd = Fd_table.remove t.wait_readable fd
+let add_writable_handler t fd action = Fd_table.add t.wait_writable fd action
+let remove_writable_handler t fd = Fd_table.remove t.wait_writable fd
 
 let time_distance ~now t =
-  try max 0. ((List.hd t.sleepers).meta.time -. now) with _ -> 0.
+  try
+    let first_sleeper = (List.hd t.sleepers).context in
+    max 0. (first_sleeper.sleep_before_time -. now)
+  with _ -> 0.
 
-let make_handler ~action meta =
-  { stopped = false; action; meta; stop_action = ignore }
+let make_handler ~action context =
+  { stopped = false; action; context; stop_action = ignore }
 
 let stop_handler handler =
   handler.stopped <- true;
@@ -51,43 +54,43 @@ let stop_handler handler =
    | Internal helpers                                                |
    +-----------------------------------------------------------------+ *)
 
-let on_timer t delay action =
-  let sleeper = { time = Unix.gettimeofday () +. delay } in
+let on_timer engine delay action =
+  let next_sleep_before_time () = Unix.gettimeofday () +. delay in
+
+  let sleeper = { sleep_before_time = next_sleep_before_time () } in
 
   let action handler =
-    sleeper.time <- Unix.gettimeofday () +. delay;
+    sleeper.sleep_before_time <- next_sleep_before_time ();
     action handler
   in
 
-  make_handler ~action sleeper |> enqueue_sleeper t
+  make_handler ~action sleeper |> enqueue_sleeper_handler engine
+
+let io_context : io = Obj.magic ()
 
 let on_readable t fd action =
-  let meta : io = Obj.magic () in
-
   let handler =
     {
       stopped = false;
       action;
-      meta;
-      stop_action = (fun () -> dequeue_readable_action t fd);
+      context = io_context;
+      stop_action = (fun () -> remove_readable_handler t fd);
     }
   in
 
-  enqueue_readable t fd handler
+  add_readable_handler t fd handler
 
 let on_writable t fd action =
-  let meta : io = Obj.magic () in
-
   let handler =
     {
       stopped = false;
       action;
-      meta;
-      stop_action = (fun () -> dequeue_writable_action t fd);
+      context = io_context;
+      stop_action = (fun () -> remove_writable_handler t fd);
     }
   in
 
-  enqueue_writable t fd handler
+  add_writable_handler t fd handler
 
 (* +-----------------------------------------------------------------+
    | Event Loop                                                      |
@@ -95,17 +98,18 @@ let on_writable t fd action =
 
 let rec restart_sleepers now = function
   | { stopped = true; _ } :: sleepers -> restart_sleepers now sleepers
-  | ({ meta = { time }; action; _ } as handler) :: sleepers when time <= now ->
+  | ({ context = { sleep_before_time }; action; _ } as handler) :: sleepers
+    when sleep_before_time <= now ->
       action handler;
       restart_sleepers now sleepers
   | sleepers -> sleepers
 
-let invoke_actions fd_map fds =
-  let invoke_action fd =
-    let handler = Fd_table.find fd_map fd in
+let invoke_io_handlers fd_map fds =
+  let invoke_io_handler fd =
+    let handler : io handler = Fd_table.find fd_map fd in
     handler.action handler
   in
-  List.iter invoke_action fds
+  List.iter invoke_io_handler fds
 
 let iter (engine : t) =
   let now = Unix.gettimeofday () in
@@ -123,8 +127,8 @@ let iter (engine : t) =
 
   engine.sleepers <- restart_sleepers now engine.sleepers;
 
-  invoke_actions engine.wait_readable readable_fds;
-  invoke_actions engine.wait_writable writable_fds
+  invoke_io_handlers engine.wait_readable readable_fds;
+  invoke_io_handlers engine.wait_writable writable_fds
 
 let rec run p =
   match Promise.state p with
