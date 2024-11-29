@@ -108,7 +108,7 @@ let join ts =
 
   List.iter
     (fun p ->
-      match state p with
+      match p.state with
       | Fulfilled x ->
           results := x :: !results;
           decr remaining;
