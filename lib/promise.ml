@@ -14,22 +14,22 @@ let make () =
 
 exception Twice_resolve
 
-let assert_is_not_pending p =
-  assert (match p.state with Pending _ -> true | _ -> false)
+let assert_is_not_pending promise =
+  assert (match promise.state with Pending _ -> true | _ -> false)
 
-let fulfill_or_reject p state =
-  assert_is_not_pending p;
+let fulfill_or_reject promise state =
+  assert_is_not_pending promise;
 
-  match p.state with
+  match promise.state with
   | Pending callbacks ->
-      p.state <- state;
+      promise.state <- state;
       List.iter (fun callback -> callback state) callbacks
   | _ -> raise Twice_resolve
 
-let fulfill p value = fulfill_or_reject p (Fulfilled value)
-let reject p exc = fulfill_or_reject p (Rejected exc)
+let fulfill promise value = fulfill_or_reject promise (Fulfilled value)
+let reject promise exc = fulfill_or_reject promise (Rejected exc)
 let return value = { state = Fulfilled value }
-let state p = p.state
+let state promise = promise.state
 
 (* +-----------------------------------------------------------------+
    | Monadic                                                         |
@@ -42,20 +42,20 @@ let enqueue_callback p callback =
 
 exception Ri_violated
 
-let callback_on_resolve r = function
-  | Fulfilled value -> fulfill r value
-  | Rejected exc -> reject r exc
+let callback_on_resolve resolver : _ callback = function
+  | Fulfilled value -> fulfill resolver value
+  | Rejected exc -> reject resolver exc
   | Pending _ -> raise Ri_violated
 
-let callback_on_fulfilled r f = function
+let callback_on_fulfilled resolver f : _ callback = function
   | Pending _ -> raise Ri_violated
-  | Rejected exc -> reject r exc
+  | Rejected exc -> reject resolver exc
   | Fulfilled value -> f value
 
-let bind p f =
-  match p.state with
+let bind promise f =
+  match promise.state with
   | Fulfilled value -> f value
-  | Rejected _ -> Obj.magic p
+  | Rejected _ -> Obj.magic promise
   | Pending _ ->
       let output_promise, output_resolver = make () in
       callback_on_fulfilled output_resolver (fun value ->
@@ -65,19 +65,19 @@ let bind p f =
           | Rejected exc -> reject output_resolver exc
           | Pending _ ->
               enqueue_callback promise (callback_on_resolve output_resolver))
-      |> enqueue_callback p;
+      |> enqueue_callback promise;
       output_promise
 
 let ( << ) = Fun.compose
 
-let map f p =
-  match p.state with
+let map f promise =
+  match promise.state with
   | Fulfilled value -> { state = Fulfilled (f value) }
-  | Rejected _ -> Obj.magic p
+  | Rejected _ -> Obj.magic promise
   | Pending _ ->
       let output_promise, output_resolver = make () in
       callback_on_fulfilled output_resolver (fulfill output_resolver << f)
-      |> enqueue_callback p;
+      |> enqueue_callback promise;
       output_promise
 
 (* +-----------------------------------------------------------------+
@@ -99,25 +99,29 @@ end
 
 let async f = f () |> ignore
 
-let join ts =
-  let p, r = make () in
-  let results = ref [] in
-  let remaining = ref (List.length ts) in
+let join promises =
+  let output_promise, output_resolver = make () in
+  let result_values = ref [] in
+  let remaining_promises = ref (List.length promises) in
 
-  let check_completion () = if !remaining = 0 then fulfill r !results in
+  let check_completion () =
+    if !remaining_promises = 0 then fulfill output_resolver !result_values
+  in
 
   let on_fulfilled value =
-    results := value :: !results;
-    decr remaining;
+    result_values := value :: !result_values;
+    decr remaining_promises;
     check_completion ()
   in
 
   List.iter
-    (fun p ->
-      match p.state with
+    (fun promise ->
+      match promise.state with
       | Fulfilled value -> on_fulfilled value
-      | Rejected exc -> reject r exc
-      | Pending _ -> callback_on_fulfilled r on_fulfilled |> enqueue_callback p)
-    ts;
+      | Rejected exc -> reject output_resolver exc
+      | Pending _ ->
+          callback_on_fulfilled output_resolver on_fulfilled
+          |> enqueue_callback promise)
+    promises;
 
-  p
+  output_promise

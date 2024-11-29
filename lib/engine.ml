@@ -31,24 +31,29 @@ let instance = create ()
    | Internal helpers                                                |
    +-----------------------------------------------------------------+ *)
 
-let rec insert_sleeper sleeper = function
-  | [] -> [ sleeper ]
+let rec insert_sleeper sleeper_handler = function
+  | [] -> [ sleeper_handler ]
   | ({ context = { sleep_before_time }; _ } as sleeper') :: sleepers
-    when sleep_before_time > sleeper.context.sleep_before_time ->
-      sleeper :: sleeper' :: sleepers
-  | sleeper' :: sleepers -> sleeper' :: insert_sleeper sleeper sleepers
+    when sleep_before_time > sleeper_handler.context.sleep_before_time ->
+      sleeper_handler :: sleeper' :: sleepers
+  | sleeper' :: sleepers -> sleeper' :: insert_sleeper sleeper_handler sleepers
 
-let enqueue_sleeper_handler t sleeper =
-  t.sleepers <- insert_sleeper sleeper t.sleepers
+let enqueue_sleeper_handler engine sleeper =
+  engine.sleepers <- insert_sleeper sleeper engine.sleepers
 
-let add_readable_handler t fd action = Fd_table.add t.wait_readable fd action
-let remove_readable_handler t fd = Fd_table.remove t.wait_readable fd
-let add_writable_handler t fd action = Fd_table.add t.wait_writable fd action
-let remove_writable_handler t fd = Fd_table.remove t.wait_writable fd
+let add_readable_handler engine fd action =
+  Fd_table.add engine.wait_readable fd action
 
-let time_distance ~now t =
+let remove_readable_handler engine fd = Fd_table.remove engine.wait_readable fd
+
+let add_writable_handler engine fd action =
+  Fd_table.add engine.wait_writable fd action
+
+let remove_writable_handler engine fd = Fd_table.remove engine.wait_writable fd
+
+let time_distance ~now engine =
   try
-    let first_sleeper = (List.hd t.sleepers).context in
+    let first_sleeper = (List.hd engine.sleepers).context in
     max 0. (first_sleeper.sleep_before_time -. now)
   with _ -> 0.
 
@@ -77,29 +82,23 @@ let on_timer engine delay action =
 
 let io_context : io = Obj.magic ()
 
-let on_readable t fd action =
-  let handler =
-    {
-      stopped = false;
-      action;
-      context = io_context;
-      stop_action = (fun () -> remove_readable_handler t fd);
-    }
-  in
+let on_readable engine fd action =
+  {
+    stopped = false;
+    action;
+    context = io_context;
+    stop_action = (fun () -> remove_readable_handler engine fd);
+  }
+  |> add_readable_handler engine fd
 
-  add_readable_handler t fd handler
-
-let on_writable t fd action =
-  let handler =
-    {
-      stopped = false;
-      action;
-      context = io_context;
-      stop_action = (fun () -> remove_writable_handler t fd);
-    }
-  in
-
-  add_writable_handler t fd handler
+let on_writable engine fd action =
+  {
+    stopped = false;
+    action;
+    context = io_context;
+    stop_action = (fun () -> remove_writable_handler engine fd);
+  }
+  |> add_writable_handler engine fd
 
 (* +-----------------------------------------------------------------+
    | Event Loop                                                      |
