@@ -106,20 +106,18 @@ let join ts =
 
   let check_completion () = if !remaining = 0 then fulfill r !results in
 
+  let on_fulfilled value =
+    results := value :: !results;
+    decr remaining;
+    check_completion ()
+  in
+
   List.iter
     (fun p ->
       match p.state with
-      | Fulfilled x ->
-          results := x :: !results;
-          decr remaining;
-          check_completion ()
+      | Fulfilled value -> on_fulfilled value
       | Rejected exc -> reject r exc
-      | Pending _ ->
-          callback_on_fulfilled r (fun value ->
-              results := value :: !results;
-              decr remaining;
-              check_completion ())
-          |> enqueue_callback p)
+      | Pending _ -> callback_on_fulfilled r on_fulfilled |> enqueue_callback p)
     ts;
 
   p
