@@ -1,3 +1,3 @@
 (executables
- (names read_file read_files write_file async hello interval)
+ (names read_file read_files write_file async hello interval k10)
  (libraries tiny_async_lib))
