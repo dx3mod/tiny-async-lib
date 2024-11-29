@@ -114,14 +114,16 @@ let join promises =
     check_completion ()
   in
 
-  List.iter
-    (fun promise ->
-      match promise.state with
-      | Fulfilled value -> on_fulfilled value
-      | Rejected exc -> reject output_resolver exc
-      | Pending _ ->
-          callback_on_fulfilled output_resolver on_fulfilled
-          |> enqueue_callback promise)
-    promises;
+  if List.is_empty promises then fulfill output_resolver []
+  else
+    List.iter
+      (fun promise ->
+        match promise.state with
+        | Fulfilled value -> on_fulfilled value
+        | Rejected exc -> reject output_resolver exc
+        | Pending _ ->
+            callback_on_fulfilled output_resolver on_fulfilled
+            |> enqueue_callback promise)
+      promises;
 
   output_promise
