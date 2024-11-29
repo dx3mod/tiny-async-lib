@@ -14,7 +14,12 @@ let make () =
 
 exception Twice_resolve
 
+let assert_is_not_pending p =
+  assert (match p.state with Pending _ -> true | _ -> false)
+
 let fulfill_or_reject p state =
+  assert_is_not_pending p;
+
   match p.state with
   | Pending callbacks ->
       p.state <- state;
