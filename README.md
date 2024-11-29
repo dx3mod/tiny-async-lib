@@ -15,7 +15,7 @@ let () = Engine.run main
 ````
 
 ```console
-$ dune exec ./examples/read_name.exe
+$ dune exec ./examples/hello.exe
 Hi! What's your name? Артём      
 Hello, Артём!
 ```
