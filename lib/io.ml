@@ -9,6 +9,9 @@ let sleep delay =
 
   p
 
+let interval delay f =
+  Engine.(on_timer instance) delay (fun _ -> Promise.async f)
+
 let read_all fd =
   let p, r = Promise.make () in
 

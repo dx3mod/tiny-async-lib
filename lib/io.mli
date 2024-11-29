@@ -6,7 +6,7 @@ val stdin : Unix.file_descr
 (* Time *)
 
 val sleep : float -> unit Promise.t
-
+val interval : float -> (unit -> unit Promise.t) -> unit
 (* Files *)
 
 val read_file : string -> string Promise.t

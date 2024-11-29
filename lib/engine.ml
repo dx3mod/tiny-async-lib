@@ -31,7 +31,16 @@ let instance = create ()
    | Internal helpers                                                |
    +-----------------------------------------------------------------+ *)
 
-let enqueue_sleeper_handler t sleeper = t.sleepers <- t.sleepers @ [ sleeper ]
+let rec insert_sleeper sleeper = function
+  | [] -> [ sleeper ]
+  | ({ context = { sleep_before_time }; _ } as sleeper') :: sleepers
+    when sleep_before_time > sleeper.context.sleep_before_time ->
+      sleeper :: sleeper' :: sleepers
+  | sleeper' :: sleepers -> sleeper' :: insert_sleeper sleeper sleepers
+
+let enqueue_sleeper_handler t sleeper =
+  t.sleepers <- insert_sleeper sleeper t.sleepers
+
 let add_readable_handler t fd action = Fd_table.add t.wait_readable fd action
 let remove_readable_handler t fd = Fd_table.remove t.wait_readable fd
 let add_writable_handler t fd action = Fd_table.add t.wait_writable fd action
@@ -98,10 +107,11 @@ let on_writable t fd action =
 
 let rec restart_sleepers now = function
   | { stopped = true; _ } :: sleepers -> restart_sleepers now sleepers
-  | ({ context = { sleep_before_time }; action; _ } as handler) :: sleepers
+  | ({ context = { sleep_before_time }; action; _ } as sleeper) :: sleepers
     when sleep_before_time <= now ->
-      action handler;
-      restart_sleepers now sleepers
+      action sleeper;
+      restart_sleepers now
+        (if sleeper.stopped then sleepers else insert_sleeper sleeper sleepers)
   | sleepers -> sleepers
 
 let invoke_io_handlers fd_map fds =
