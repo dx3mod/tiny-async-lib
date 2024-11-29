@@ -2,5 +2,5 @@
 
 (package
  (name tiny-async-lib)
- (synopsis "Toy implementation of promises and async engine")
+ (synopsis "Tiny concurrent I/O and promises library")
  (depends ocaml dune))

@@ -1,4 +1,4 @@
-(** Toy implementation of promises and async engine.
+(** Tiny concurrent I/O and promises library.
 
 {[
 let main =

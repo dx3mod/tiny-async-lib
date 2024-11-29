@@ -1,6 +1,7 @@
 # tiny-async-lib
 
-Toy implementation of [promises] and [async engine] inspired by [Lwt].  
+Tiny [concurrent I/O] and [promises] library inspired by [Lwt].
+It's just an educational project, not for use.
 
 ```ocaml
 open Tiny_async_lib
@@ -35,5 +36,5 @@ $ python -m http.server 8080 --directory _build/default/_doc/_html/
 - [CS3110, 8.7. Promises](https://cs3110.github.io/textbook/chapters/ds/promises.html)
 
 [promises]: https://en.wikipedia.org/wiki/Futures_and_promises
-[async engine]: https://en.wikipedia.org/wiki/Asynchronous_I/O
+[concurrent I/O]: https://en.wikipedia.org/wiki/Asynchronous_I/O
 [Lwt]: https://github.com/ocsigen/lwt
