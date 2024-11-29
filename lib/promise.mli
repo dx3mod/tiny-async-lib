@@ -42,3 +42,4 @@ exception Twice_resolve
 (* Other *)
 
 val async : (unit -> 'a t) -> unit
+val join : 'a t list -> 'a list t

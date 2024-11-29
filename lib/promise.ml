@@ -93,3 +93,28 @@ end
    +-----------------------------------------------------------------+ *)
 
 let async f = f () |> ignore
+
+let join ts =
+  let p, r = make () in
+  let results = ref [] in
+  let remaining = ref (List.length ts) in
+
+  let check_completion () = if !remaining = 0 then fulfill r !results in
+
+  List.iter
+    (fun p ->
+      match state p with
+      | Fulfilled x ->
+          results := x :: !results;
+          decr remaining;
+          check_completion ()
+      | Rejected exc -> reject r exc
+      | Pending _ ->
+          callback_on_fulfilled r (fun value ->
+              results := value :: !results;
+              decr remaining;
+              check_completion ())
+          |> enqueue_callback p)
+    ts;
+
+  p
