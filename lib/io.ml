@@ -55,7 +55,7 @@ let write_all fd contents =
 
       all_bytes_write := !all_bytes_write + bytes_write;
 
-      if all_bytes_write = all_bytes_write then (
+      if !all_bytes_write = length then (
         Engine.stop_handler handler;
         Promise.fulfill r ()));
 
