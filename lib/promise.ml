@@ -35,19 +35,19 @@ let state promise = promise.state
    | Monadic                                                         |
    +-----------------------------------------------------------------+ *)
 
-let enqueue_callback p callback =
-  match p.state with
-  | Pending callbacks -> p.state <- Pending (callback :: callbacks)
+let enqueue_callback promise callback =
+  match promise.state with
+  | Pending callbacks -> promise.state <- Pending (callback :: callbacks)
   | _ -> ()
 
 exception Ri_violated
 
-let callback_on_resolve resolver : _ callback = function
+let resolve_on_callback resolver : _ callback = function
   | Fulfilled value -> fulfill resolver value
   | Rejected exc -> reject resolver exc
   | Pending _ -> raise Ri_violated
 
-let callback_on_fulfilled resolver f : _ callback = function
+and callback_on_fulfilled resolver f : _ callback = function
   | Pending _ -> raise Ri_violated
   | Rejected exc -> reject resolver exc
   | Fulfilled value -> f value
@@ -58,14 +58,14 @@ let bind promise f =
   | Rejected _ -> Obj.magic promise
   | Pending _ ->
       let output_promise, output_resolver = make () in
-      callback_on_fulfilled output_resolver (fun value ->
-          let promise = f value in
-          match promise.state with
-          | Fulfilled value -> fulfill output_resolver value
-          | Rejected exc -> reject output_resolver exc
-          | Pending _ ->
-              enqueue_callback promise (callback_on_resolve output_resolver))
-      |> enqueue_callback promise;
+      enqueue_callback promise
+      @@ callback_on_fulfilled output_resolver (fun value ->
+             let promise = f value in
+             match promise.state with
+             | Fulfilled value -> fulfill output_resolver value
+             | Rejected exc -> reject output_resolver exc
+             | Pending _ ->
+                 enqueue_callback promise @@ resolve_on_callback output_resolver);
       output_promise
 
 let ( << ) = Fun.compose
@@ -76,8 +76,8 @@ let map f promise =
   | Rejected _ -> Obj.magic promise
   | Pending _ ->
       let output_promise, output_resolver = make () in
-      callback_on_fulfilled output_resolver (fulfill output_resolver << f)
-      |> enqueue_callback promise;
+      enqueue_callback promise
+      @@ callback_on_fulfilled output_resolver (fulfill output_resolver << f);
       output_promise
 
 (* +-----------------------------------------------------------------+
@@ -122,8 +122,8 @@ let join promises =
         | Fulfilled value -> on_fulfilled value
         | Rejected exc -> reject output_resolver exc
         | Pending _ ->
-            callback_on_fulfilled output_resolver on_fulfilled
-            |> enqueue_callback promise)
+            enqueue_callback promise
+            @@ callback_on_fulfilled output_resolver on_fulfilled)
       promises;
 
   output_promise
