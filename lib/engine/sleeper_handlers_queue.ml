@@ -17,3 +17,6 @@ let insert new_sleeper_handler queue : t =
 let min_sleeper : t -> _ option = function
   | [] -> None
   | x :: _ -> Some x.Handler.context
+
+let fold : ('acc -> Sleeper.t Handler.t -> 'acc) -> 'acc -> t -> 'acc =
+  List.fold_left
