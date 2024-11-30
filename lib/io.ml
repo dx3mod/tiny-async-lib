@@ -4,7 +4,7 @@ let sleep delay =
   let promise, resolver = Promise.make () in
 
   Engine.(on_timer instance) delay (fun handler ->
-      Engine.stop_handler handler;
+      Engine.Handler.stop handler;
       Promise.fulfill resolver ());
 
   promise
@@ -28,7 +28,7 @@ let read_all fd =
       let bytes_read = Unix.read fd chunk 0 (Bytes.length chunk) in
 
       if bytes_read = 0 then (
-        Engine.stop_handler handler;
+        Engine.Handler.stop handler;
         on_finish ())
       else on_data bytes_read);
 
@@ -55,7 +55,7 @@ let write_all fd contents =
       all_bytes_write := !all_bytes_write + bytes_write;
 
       if !all_bytes_write = length then (
-        Engine.stop_handler handler;
+        Engine.Handler.stop handler;
         Promise.fulfill resolver ()));
 
   promise

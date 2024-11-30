@@ -2,3 +2,5 @@
  (public_name tiny-async-lib)
  (name tiny_async_lib)
  (libraries unix))
+
+(include_subdirs qualified)
