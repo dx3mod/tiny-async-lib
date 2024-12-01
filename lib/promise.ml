@@ -99,58 +99,47 @@ end
 
 let async f = f () |> ignore
 
-let join promises =
+let aux_generic_join ~iter ~length ~on_fulfilled ~on_complete promises =
   let output_promise, output_resolver = make () in
-  let remaining_promises = ref (List.length promises) in
+  let remaining_promises = ref (length promises) in
 
-  let check_completion () =
-    if !remaining_promises = 0 then fulfill output_resolver ()
+  let aux_on_complete () =
+    if !remaining_promises = 0 then fulfill output_resolver (on_complete ())
   in
 
-  let on_fulfilled () =
+  let aux_on_fulfilled value =
+    on_fulfilled value;
     decr remaining_promises;
-    check_completion ()
+    aux_on_complete ()
   in
 
-  if List.is_empty promises then fulfill output_resolver ()
+  if length promises = 0 then fulfill output_resolver @@ on_complete ()
   else
-    List.iter
+    iter
       (fun promise ->
         match promise.state with
-        | Fulfilled () -> on_fulfilled ()
-        | Rejected exc -> reject output_resolver exc
+        | Fulfilled value -> aux_on_fulfilled value
+        | Rejected _ -> Obj.magic promise
         | Pending _ ->
             enqueue_callback promise
-            @@ callback_on_fulfilled output_resolver on_fulfilled)
+            @@ callback_on_fulfilled output_resolver aux_on_fulfilled)
       promises;
 
   output_promise
+
+let aux_list_join () = aux_generic_join ~iter:List.iter ~length:List.length
+and aux_array_join () = aux_generic_join ~iter:Array.iter ~length:Array.length
+
+let join promises =
+  aux_list_join () ~on_fulfilled:ignore ~on_complete:ignore promises
+
+let join_array promises =
+  aux_array_join () ~on_fulfilled:ignore ~on_complete:ignore promises
 
 let all promises =
-  let output_promise, output_resolver = make () in
   let result_values = ref [] in
-  let remaining_promises = ref (List.length promises) in
 
-  let check_completion () =
-    if !remaining_promises = 0 then fulfill output_resolver !result_values
-  in
-
-  let on_fulfilled value =
-    result_values := value :: !result_values;
-    decr remaining_promises;
-    check_completion ()
-  in
-
-  if List.is_empty promises then fulfill output_resolver []
-  else
-    List.iter
-      (fun promise ->
-        match promise.state with
-        | Fulfilled value -> on_fulfilled value
-        | Rejected exc -> reject output_resolver exc
-        | Pending _ ->
-            enqueue_callback promise
-            @@ callback_on_fulfilled output_resolver on_fulfilled)
-      promises;
-
-  output_promise
+  aux_list_join ()
+    ~on_fulfilled:(fun value -> result_values := value :: !result_values)
+    ~on_complete:(fun () -> !result_values)
+    promises

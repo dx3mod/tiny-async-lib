@@ -40,8 +40,14 @@ end
 
 (** {1 Functions} *)
 
+(** {2 Async} *)
+
 val async : (unit -> 'a t) -> unit
+
+(** {2 Joins} *)
+
 val join : unit t list -> unit t
+val join_array : unit t array -> unit t
 val all : 'a t list -> 'a list t
 
 (** {1 Exceptions} *)
