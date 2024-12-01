@@ -12,6 +12,11 @@ let make () =
   let p = { state = Pending [] } in
   (p, p)
 
+let with_make f =
+  let promise, resolver = make () in
+  f resolver;
+  promise
+
 exception Twice_resolve
 
 let assert_is_not_pending promise =
@@ -28,57 +33,70 @@ let fulfill_or_reject promise state =
 
 let fulfill promise value = fulfill_or_reject promise (Fulfilled value)
 let reject promise exc = fulfill_or_reject promise (Rejected exc)
-let return value = { state = Fulfilled value }
 let state promise = promise.state
 
 (* +-----------------------------------------------------------------+
-   | Monadic                                                         |
+   | Callbacks                                                       |
    +-----------------------------------------------------------------+ *)
 
+let ( << ) = Fun.compose
+
+(** Enqueue the [callback] to the [promise] if it's pending. *)
 let enqueue_callback promise callback =
   match promise.state with
   | Pending callbacks -> promise.state <- Pending (callback :: callbacks)
   | _ -> ()
 
 exception Ri_violated
+(** Impossible state. *)
 
-let resolve_on_callback resolver : _ callback = function
-  | Fulfilled value -> fulfill resolver value
-  | Rejected exc -> reject resolver exc
+(** Create a [callback] with passed handlers. *)
+let callback ~on_fulfilled ~on_rejected : _ callback = function
+  | Fulfilled value -> on_fulfilled value
+  | Rejected exc -> on_rejected exc
   | Pending _ -> raise Ri_violated
 
-and callback_on_fulfilled resolver f : _ callback = function
-  | Pending _ -> raise Ri_violated
-  | Rejected exc -> reject resolver exc
-  | Fulfilled value -> f value
+(** Create a callback that will resolve the [resolver] when the parent promise is resolved. *)
+let resolve_on_callback resolver =
+  callback ~on_fulfilled:(fulfill resolver) ~on_rejected:(reject resolver)
+
+(* +-----------------------------------------------------------------+
+   | Monadic                                                         |
+   +-----------------------------------------------------------------+ *)
+
+let return value = { state = Fulfilled value }
+
+let aux_bind ~on_fulfilled ~on_pending promise =
+  match promise.state with
+  | Fulfilled value -> on_fulfilled value
+  | Rejected _ -> Obj.magic promise
+  | Pending _ -> with_make (enqueue_callback promise << on_pending)
 
 let bind promise f =
-  match promise.state with
-  | Fulfilled value -> f value
-  | Rejected _ -> Obj.magic promise
-  | Pending _ ->
-      let output_promise, output_resolver = make () in
-      enqueue_callback promise
-      @@ callback_on_fulfilled output_resolver (fun value ->
-             let promise = f value in
-             match promise.state with
-             | Fulfilled value -> fulfill output_resolver value
-             | Rejected exc -> reject output_resolver exc
-             | Pending _ ->
-                 enqueue_callback promise @@ resolve_on_callback output_resolver);
-      output_promise
+  let on_pending resolver =
+    callback ~on_rejected:(reject resolver) ~on_fulfilled:(fun value ->
+        let promise = f value in
 
-let ( << ) = Fun.compose
+        match promise.state with
+        | Fulfilled value -> fulfill resolver value
+        | Rejected exc -> reject resolver exc
+        | Pending _ -> enqueue_callback promise (resolve_on_callback resolver))
+  in
+
+  let on_fulfilled = f in
+
+  aux_bind ~on_fulfilled ~on_pending promise
 
 let map f promise =
-  match promise.state with
-  | Fulfilled value -> { state = Fulfilled (f value) }
-  | Rejected _ -> Obj.magic promise
-  | Pending _ ->
-      let output_promise, output_resolver = make () in
-      enqueue_callback promise
-      @@ callback_on_fulfilled output_resolver (fulfill output_resolver << f);
-      output_promise
+  let on_fulfilled value = { state = Fulfilled (f value) } in
+
+  let on_pending resolver =
+    callback
+      ~on_fulfilled:(fulfill resolver << f)
+      ~on_rejected:(reject resolver)
+  in
+
+  aux_bind ~on_fulfilled ~on_pending promise
 
 (* +-----------------------------------------------------------------+
    | Syntax                                                          |
@@ -99,47 +117,42 @@ end
 
 let async f = f () |> ignore
 
-let aux_generic_join ~iter ~length ~on_fulfilled ~on_complete promises =
-  let output_promise, output_resolver = make () in
-  let remaining_promises = ref (length promises) in
+(* +-----------------------------------------------------------------+
+   | Joins                                                           |
+   +-----------------------------------------------------------------+ *)
 
-  let aux_on_complete () =
-    if !remaining_promises = 0 then fulfill output_resolver (on_complete ())
+let aux_join ~on_fulfilled ~on_complete promises =
+  with_make @@ fun resolver ->
+  let remaining_promises = ref (List.length promises) in
+
+  let check_on_complete () =
+    if !remaining_promises = 0 then fulfill resolver @@ on_complete ()
   in
 
-  let aux_on_fulfilled value =
+  let on_fulfilled value =
     on_fulfilled value;
     decr remaining_promises;
-    aux_on_complete ()
+    check_on_complete ()
   in
 
-  if length promises = 0 then fulfill output_resolver @@ on_complete ()
-  else
-    iter
-      (fun promise ->
-        match promise.state with
-        | Fulfilled value -> aux_on_fulfilled value
-        | Rejected _ -> Obj.magic promise
-        | Pending _ ->
-            enqueue_callback promise
-            @@ callback_on_fulfilled output_resolver aux_on_fulfilled)
-      promises;
+  let join_promise promise =
+    match promise.state with
+    | Fulfilled value -> on_fulfilled value
+    | Rejected exc -> reject resolver exc
+    | Pending _ ->
+        enqueue_callback promise
+        @@ callback ~on_fulfilled ~on_rejected:(reject resolver)
+  in
 
-  output_promise
+  if List.is_empty promises then check_on_complete ()
+  else List.iter join_promise promises
 
-let aux_list_join () = aux_generic_join ~iter:List.iter ~length:List.length
-and aux_array_join () = aux_generic_join ~iter:Array.iter ~length:Array.length
-
-let join promises =
-  aux_list_join () ~on_fulfilled:ignore ~on_complete:ignore promises
-
-let join_array promises =
-  aux_array_join () ~on_fulfilled:ignore ~on_complete:ignore promises
+let join promises = aux_join ~on_fulfilled:ignore ~on_complete:ignore promises
 
 let all promises =
   let result_values = ref [] in
 
-  aux_list_join ()
+  aux_join
     ~on_fulfilled:(fun value -> result_values := value :: !result_values)
     ~on_complete:(fun () -> !result_values)
     promises

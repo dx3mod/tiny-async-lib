@@ -49,8 +49,10 @@ val make : unit -> 'a t * 'a resolver
 
 *)
 
+val with_make : ('a resolver -> unit) -> 'a t
+
 val state : 'a t -> 'a state
-(** [state promise] returns the current inner {!state} of the [promise].  *)
+(** [state promise] returns the current inner {!type-state} of the [promise].  *)
 
 (** {1 Fulfill or Reject} *)
 
@@ -96,9 +98,6 @@ val async : (unit -> 'a t) -> unit
 (** {2 Joins} *)
 
 val join : unit t list -> unit t
-(** [join promises] waits until all [promises] are resolved. *)
-
-val join_array : unit t array -> unit t
 (** [join promises] waits until all [promises] are resolved. *)
 
 val all : 'a t list -> 'a list t
