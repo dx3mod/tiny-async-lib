@@ -41,7 +41,8 @@ end
 (** {1 Functions} *)
 
 val async : (unit -> 'a t) -> unit
-val join : 'a t list -> 'a list t
+val join : unit t list -> unit t
+val all : 'a t list -> 'a list t
 
 (** {1 Exceptions} *)
 

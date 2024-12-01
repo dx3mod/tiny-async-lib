@@ -101,6 +101,33 @@ let async f = f () |> ignore
 
 let join promises =
   let output_promise, output_resolver = make () in
+  let remaining_promises = ref (List.length promises) in
+
+  let check_completion () =
+    if !remaining_promises = 0 then fulfill output_resolver ()
+  in
+
+  let on_fulfilled () =
+    decr remaining_promises;
+    check_completion ()
+  in
+
+  if List.is_empty promises then fulfill output_resolver ()
+  else
+    List.iter
+      (fun promise ->
+        match promise.state with
+        | Fulfilled () -> on_fulfilled ()
+        | Rejected exc -> reject output_resolver exc
+        | Pending _ ->
+            enqueue_callback promise
+            @@ callback_on_fulfilled output_resolver on_fulfilled)
+      promises;
+
+  output_promise
+
+let all promises =
+  let output_promise, output_resolver = make () in
   let result_values = ref [] in
   let remaining_promises = ref (List.length promises) in
 

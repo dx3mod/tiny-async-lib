@@ -10,7 +10,7 @@ let () =
 
   let readers = List.map Io.read_file filenames in
 
-  let* contents = Promise.join readers in
+  let* contents = Promise.all readers in
 
   List.iter print_endline contents;
 
