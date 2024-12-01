@@ -13,8 +13,6 @@
 
 (maintainers "Mikhail Lopatin <dx3mod@bk.ru>")
 
-(license MIT)
-
 (package
  (name tiny-async-lib)
  (synopsis "Tiny concurrent I/O and promises library")

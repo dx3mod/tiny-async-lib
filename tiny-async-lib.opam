@@ -4,7 +4,6 @@ version: "0.1"
 synopsis: "Tiny concurrent I/O and promises library"
 maintainer: ["Mikhail Lopatin <dx3mod@bk.ru>"]
 authors: ["Mikhail Lopatin <dx3mod@bk.ru>"]
-license: "MIT"
 homepage: "https://github.com/dx3mod/tiny-async-lib"
 bug-reports: "https://github.com/dx3mod/tiny-async-lib/issues"
 depends: [
