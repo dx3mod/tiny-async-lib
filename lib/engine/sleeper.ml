@@ -1,6 +1,6 @@
 type t = { mutable sleep_before_time : float; delay : float }
 
-let make delay = { sleep_before_time = Unix.gettimeofday () +. delay; delay }
+let make ~delay = { sleep_before_time = Unix.gettimeofday () +. delay; delay }
 
 let next_time sleeper =
   sleeper.sleep_before_time <- Unix.gettimeofday () +. sleeper.delay

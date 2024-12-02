@@ -16,7 +16,7 @@ and instance = Core.create ()
    +-----------------------------------------------------------------+ *)
 
 let on_timer engine delay action =
-  let sleeper = Sleeper.make delay in
+  let sleeper = Sleeper.make ~delay in
 
   let action handler =
     Sleeper.next_time sleeper;

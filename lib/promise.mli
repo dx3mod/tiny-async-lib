@@ -50,6 +50,15 @@ val make : unit -> 'a t * 'a resolver
 *)
 
 val with_make : ('a resolver -> unit) -> 'a t
+(** Shortcut for {!make} construction.
+
+    {[
+      (* Returns a promise. *)
+      Promise.with_make @@ fun resolver -> 
+      (* ... *)
+    ]}
+
+*)
 
 val state : 'a t -> 'a state
 (** [state promise] returns the current inner {!type-state} of the [promise].  *)

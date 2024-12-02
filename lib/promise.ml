@@ -69,18 +69,25 @@ let return value = { state = Fulfilled value }
 let aux_bind ~on_fulfilled ~on_pending promise =
   match promise.state with
   | Fulfilled value -> on_fulfilled value
-  | Rejected _ -> Obj.magic promise
-  | Pending _ -> with_make (enqueue_callback promise << on_pending)
+  | Rejected _ ->
+      (* Type system hack to return the same value but with a different type.
+         I.e. convert 'a promise => 'b promise without creating a new object. *)
+      Obj.magic promise
+  | Pending _ ->
+      (* On pending state enqueue a callback (on_pending function result). *)
+      with_make (enqueue_callback promise << on_pending)
 
 let bind promise f =
   let on_pending resolver =
-    callback ~on_rejected:(reject resolver) ~on_fulfilled:(fun value ->
+    callback
+      ~on_fulfilled:(fun value ->
         let promise = f value in
 
         match promise.state with
         | Fulfilled value -> fulfill resolver value
         | Rejected exc -> reject resolver exc
-        | Pending _ -> enqueue_callback promise (resolve_on_callback resolver))
+        | Pending _ -> enqueue_callback promise @@ resolve_on_callback resolver)
+      ~on_rejected:(reject resolver)
   in
 
   let on_fulfilled = f in
@@ -88,7 +95,7 @@ let bind promise f =
   aux_bind ~on_fulfilled ~on_pending promise
 
 let map f promise =
-  let on_fulfilled value = { state = Fulfilled (f value) } in
+  let on_fulfilled = return << f in
 
   let on_pending resolver =
     callback
@@ -141,7 +148,7 @@ let aux_join ~on_fulfilled ~on_complete promises =
     | Rejected exc -> reject resolver exc
     | Pending _ ->
         enqueue_callback promise
-        @@ callback ~on_fulfilled ~on_rejected:(reject resolver)
+        @@ callback ~on_rejected:(reject resolver) ~on_fulfilled
   in
 
   if List.is_empty promises then check_on_complete ()

@@ -1,3 +1,6 @@
+(* WARNING: It's not an effective implementation of the queue with priorities.
+            It should be replaced with a mutable tree-based data structure like Lwt_pqueue. *)
+
 type t = Sleeper.t Handler.t list
 
 let empty = []

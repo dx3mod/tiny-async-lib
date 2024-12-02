@@ -1,11 +1,18 @@
 let restart_sleeper_handlers queue ~now =
-  let restart_sleeper_handler queue (sleeper_handler : Sleeper.t Handler.t) =
-    if Handler.is_stopped sleeper_handler then queue
-    else if (Handler.context sleeper_handler).sleep_before_time <= now then (
+  let rec restart_sleeper_handler queue sleeper_handler =
+    if Handler.is_stopped sleeper_handler then
+      (* dequeue from queue if sleeper_handler is stopped *)
+      queue
+    else if
+      (Handler.context sleeper_handler).Sleeper.sleep_before_time <= now
+      (* if it's time to wake up sleeper_handler *)
+    then (
       Handler.start sleeper_handler;
-      if Handler.is_stopped sleeper_handler then queue
-      else Sleeper_handlers_queue.insert sleeper_handler queue)
-    else Sleeper_handlers_queue.insert sleeper_handler queue
+      (* check if sleep_handler is stopped after execution *)
+      restart_sleeper_handler queue sleeper_handler)
+    else
+      (* if sleeper is sleep yet *)
+      Sleeper_handlers_queue.insert sleeper_handler queue
   in
 
   Sleeper_handlers_queue.(fold restart_sleeper_handler empty queue)
