@@ -23,24 +23,23 @@ let on_timer engine delay action =
     action handler
   in
 
-  Core.enqueue_sleeper_handler engine (Handler.make ~action sleeper)
+  let handler = Handler.make ~action sleeper in
+
+  Core.enqueue_sleeper_handler engine handler
+
+let make_io_handler ~stop_action ~action =
+  Handler.make ~action ~stop_action Core.io_context
 
 let on_readable engine fd action =
-  {
-    stopped = false;
-    action;
-    context = Core.io_context;
-    stop_action = (fun () -> Core.remove_readable_handler engine fd);
-  }
+  make_io_handler
+    ~stop_action:(fun () -> Core.remove_readable_handler engine fd)
+    ~action
   |> Core.add_readable_handler engine fd
 
 let on_writable engine fd action =
-  {
-    stopped = false;
-    action;
-    context = Core.io_context;
-    stop_action = (fun () -> Core.remove_writable_handler engine fd);
-  }
+  make_io_handler
+    ~stop_action:(fun () -> Core.remove_writable_handler engine fd)
+    ~action
   |> Core.add_writable_handler engine fd
 
 (* +-----------------------------------------------------------------+

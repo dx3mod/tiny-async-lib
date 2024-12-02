@@ -18,3 +18,7 @@ let start handler = handler.action handler
 let stop handler =
   handler.stopped <- true;
   handler.stop_action ()
+
+and is_stopped { stopped; _ } = stopped
+
+let context { context; _ } = context
